@@ -1,0 +1,23 @@
+{
+  "name": "lgsm-discord",
+  "version": "1.0.0",
+  "description": "Discord bot to deploy on linux gsm csgo servers for remote management. https://linuxgsm.com/",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cjavad/lgsm-discord.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/cjavad/lgsm-discord/issues"
+  },
+  "homepage": "https://github.com/cjavad/lgsm-discord#readme",
+  "dependencies": {
+    "discord.js": "^12.2.0"
+  }
+}
