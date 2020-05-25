@@ -170,6 +170,7 @@ client.on('message', message => {
     // Validate & split discord message into command (name) and arguments
     var command = argParse(config.prefix, ' ')(message.content);
     if (!command) return;
+    message.delete();
     
     // VERY BIG BRAIN MOVE.
     if (config.servers.filter(x => x.name === command.command)) {
