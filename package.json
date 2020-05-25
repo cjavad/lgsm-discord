@@ -18,6 +18,9 @@
   },
   "homepage": "https://github.com/cjavad/lgsm-discord#readme",
   "dependencies": {
-    "discord.js": "^12.2.0"
+    "discord.js": "^12.2.0",
+    "gamedig": "^2.0.20",
+    "ip2location-nodejs": "^8.3.0",
+    "node-run-cmd": "^1.0.1"
   }
 }

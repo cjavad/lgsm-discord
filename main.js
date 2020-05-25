@@ -1,114 +1,106 @@
 const fs = require('fs');
 const Discord = require('discord.js');
-const micromatch = require('micromatch');
+const gamedig = require('gamedig');
+const ip2loc = require("ip2location-nodejs");
 const nrc = require('node-run-cmd');
 const config = require('./config');
 
-class Parser {
-    
-}
-
 const commands = [
     {
-        command: 'install',
-        short: 'i',
-        enabled: false
+        command: 'status',
+        short: 's',
+        notLgsm: true
     },
     {
         command: 'auto-install',
         short: 'ai',
-        enabled: true,
         warn: true
     },
     {
         command: 'start',
-        short: 'st',
-        enabled: true
+        short: 'st'
     },
     {
         command: 'stop',
         short: 'sp',
-        enabled: true,
         warn: true
     },
     {
         command: 'restart',
         short: 'r',
-        enabled: true,
         warn: true
     },
     {
         command: 'details',
         short: 'dt',
-        enabled: true
+        
     },
     {
         command: 'post-details',
         short: 'pd',
-        enabled: true
+        
     },
     {
         command: 'backup',
         short: 'b',
-        enabled: true,
         warn: true
     },
     {
         command: 'update-lgsm',
         short: 'ul',
-        enabled: true,
         warn: true
     },
     {
         command: 'monitor',
         short: 'm',
-        enabled: true
+        
     },
     {
         command: 'test-alert',
         short: 'ta',
-        enabled: true
+        
     },
     {
         command: 'update',
         short: 'u',
-        enabled: true,
         warn: true
     },
     {
         command: 'force-update',
         short: 'fu',
-        enabled: true,
         warn: true
     },
     {
         command: 'validate',
         short: 'v',
-        enabled: true,
         warn: true
-    },
-    {
-        command: 'console',
-        short: 'c',
-        enabled: false
-    },
-    {
-        command: 'debug',
-        short: 'd',
-        enabled: false
     }
 ];
 
 const client = new Discord.Client();
 
+// Initilizes with a prefix and seperator
+// and returns a function that takes
+// the input (discord message)
+// And validates and parses command
+// Outputs { command: 'commandname', args: ['arg1', 'arg2', ...] }
 function argParse(prefix, seperator) {
     return str => {
-        if (str.startsWith(prefix)) {
-            str = str.substring(1);
+        // checks if message starts with prefix (is it a command?)
+        if (typeof str === 'string' && str.startsWith(prefix)) {
+            // Removes prefix by removing the lenght of the prefix
+            str = str.substring(prefix.length);
+            // Splits remaning message by the seperator defined
+            // Typically just a white space
             var args = str.split(seperator);
+            // The first arg will always be the command name
+            // So i'll move that into a seperate variable
             var command = args[0];
+            // And remove the first argument (the command name)
             args.shift();
-
+            
+            // The function returns the object containing
+            // the command name and a list of arguments
             return {
                 command: command,
                 args: args
@@ -117,9 +109,19 @@ function argParse(prefix, seperator) {
     };
 };
 
+// Functions that pads a string
+// meaning it forces a string to 
+// have a certain lenght. Example:
+// 'hello' need length 10
+// pads with '=' require us to add '===='
+// becomes 'hello====' with a right pad
+// or '====hello' with a left pad
 function pad(pad, str, padLeft) {
+    // if the string to pad is undefined
+    // we simply return that string
     if (typeof str === 'undefined')
         return pad;
+    // WORKS!!!
     if (padLeft) {
         return (pad + str).slice(-pad.length);
     } else {
@@ -127,62 +129,131 @@ function pad(pad, str, padLeft) {
     }
 }
 
+function splitConnectionString (ipString) {
+    ipString = ipString.split(":");
+    return {
+        host: ipString[0],
+        port: isNaN(ipString[1]) ? undefined : Number(ipString[1])
+    }
+}
+
+function extractUserFromPath(lgsmRunFilePath) {
+    lgsmRunFilePath = lgsmRunFilePath.split('/').filter(elm => elm.length);
+    return lgsmRunFilePath[1];
+}
+
+function cleanInput(line) {
+    if (line) {
+        while (/\[\d+m/.test(line)) {
+            line = line.replace(/\[\d+m/, '').replace(/\[K/, '');
+        }
+        return line;
+    }
+}
+
+function lsgm(lgsmPath, lgsmCommand, callback) {
+    let output = '';
+    var user = extractUserFromPath(lgsmPath);
+    var cmd = `sudo runuser -l ${user} -c \"${lgsmPath} ${lgsmCommand}\"`;
+
+    if (!fs.existsSync(lgsmPath)) { callback(undefined); return };
+
+    nrc.run(cmd, {
+        onData: data => { output = output + cleanInput(data); },
+        onDone: () => { callback(output); }
+    });
+}
 
 client.on('message', message => {
-    if (config.access.includes(message.author.id)) {
-        if (message.content.startsWith(config.prefix)) {
-            var servers = config.servers;
-            var args = argParse(config.prefix, ' ')(message.content);
-            var command = commands.filter(x => {
-                return x.command === args.command || x.short === args.command;
-            });
-
-            if (args.args.length) {
-                servers = servers.filter(x => {
-                    return micromatch.isMatch(x.name, args.args);
-                });
-            }
-
-            if (command.length === 0) {
-                // invalid argument(s)
-                var helpMessage = `Usage: ${config.prefix}[command] [servers...]?\n**Valid Commands:**\n\`\`\``;
-                commands.forEach(cmd => {
-                    helpMessage += `${cmd.short.length <= 1 ? pad('  ', cmd.short, false) : cmd.short} ${cmd.command} \n`;
-                });
-                helpMessage += "```"
-                message.channel.send(helpMessage);
-            } else {
-                servers.forEach(server => {
-                    if (fs.existsSync(server.path)) {
-                        message.channel.send(`Running \`${server.path} ${command[0].command}\` on **${server.user} ${server.name}**`);
-                        let output = `OUTPUT OF: ${server.path} ${command[0].command}\n\n`;
+    // Validate & split discord message into command (name) and arguments
+    var command = argParse(config.prefix, ' ')(message.content);
+    if (!command) return;
     
-                        nrc.run(`sudo runuser -l ${server.user} -c \"${server.path} ${command[0].short}\"`, {
-                            onData: data => {
-                                var data = data.split("\n");
-                                data.forEach(line => {
-                                    if (line) {
-                                        while (/\[\d+m/.test(line)) {
-                                            line = line.replace(/\[\d+m/, '').replace(/\[K/, '');
-                                        }
-                                        output += line + '\n';
-                                    }
-                                });
-                            },
-                            onDone: () => {
-                                message.channel.send(`Finished running \`${server.path} ${command[0].short}\` on **${server.user}@${server.ip}**\n`, {
-                                    files: [{
-                                        attachment: Buffer.from(output),
-                                        name: 'output.txt'
-                                    }]
-                                });
-                            }
-                        });
+    // VERY BIG BRAIN MOVE.
+    if (config.servers.filter(x => x.name === command.command)) {
+        var server = config.servers.filter(x => x.name === command.command)[0];
+        if (!server) return;
+        if (!command.args.length) return;
+        var commandName = command.args[0];
+        var commandObject = commands.filter(c => commandName === c.short || commandName === c.command);
+        if (!commandObject.length) return;
+        var commandObject = commandObject[0];
+
+        if (commandObject.notLgsm && commandObject.short === 's') {
+            // Output server status by ip.
+            gamedig.query({
+                type: 'csgo',
+                ...splitConnectionString(server.pubIp)
+            }).then(state => {
+                ip2loc.IP2Location_init('./data/IP-COUNTRY-SAMPLE.BIN');
+                var loc = 'US'; // ip2loc.IP2Location_get_country_short(state.connect);
+
+                var embed = new Discord.MessageEmbed({
+                    title: state.name,
+                    description: `Ping: ${state.ping || null}`,
+                    fields: [
+                        {
+                            name: 'Status',
+                            value: ':green_circle: Online',
+                            inline: true
+                        },
+                        {
+                            name: 'Address:Port',
+                            value: state.connect,
+                            inline: true
+                        },
+                        {
+                            name: 'Location',
+                            value: `:flag_${loc.toLowerCase()}: ${loc}`,
+                            inline: true
+                        },
+                        {
+                            name: 'Game',
+                            value: state.raw.game,
+                            inline: true
+                        },
+                        {
+                            name: 'Current Map',
+                            value: state.map,
+                            inline: true
+                        }, {
+                            name: 'Players',
+                            value: `${state.players.length}/${state.maxplayers}`,
+                            inline: true
+                        }
+                    ],
+                    footer: {
+                        text: 'lgsm-discord by apple#0018'
                     }
                 });
-            }
+                message.channel.send(embed);
+            }).catch(error => {
+                if (error) {
+                    // Server if offline
+                    message.channel.send("Failed to connect to " + server.pubIp);
+                }
+            })
+
+        } else {
+            // LGSM COMMAND
+            lsgm(server.path, commandObject.command, output => {
+                message.channel.send(`Finished running \`${server.path} ${commandObject.short}\` on **${server.name}**\n`, {
+                    files: [{
+                        attachment: Buffer.from(output),
+                        name: 'output.txt'
+                    }]
+                });
+            });
         }
-    };
+    } else {
+        var helpMessage = `Usage: ${config.prefix}[server] [command]?\n**Valid Commands:**\n\`\`\``;
+        commands.forEach(cmd => {
+            helpMessage += `${cmd.short.length <= 1 ? pad('  ', cmd.short, false) : cmd.short} ${cmd.command} \n`;
+        });
+        helpMessage += "```"
+        message.channel.send(helpMessage);
+    }
 });
 
+// Login to discord using the configured discord token
 client.login(config.discordToken);
