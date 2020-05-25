@@ -165,6 +165,8 @@ function lsgm(lgsmPath, lgsmCommand, callback) {
 }
 
 client.on('message', message => {
+    // Check permissions
+    if (!config.access.includes(message.author.id)) return;
     // Validate & split discord message into command (name) and arguments
     var command = argParse(config.prefix, ' ')(message.content);
     if (!command) return;
