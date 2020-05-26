@@ -144,7 +144,7 @@ function extractUserFromPath(lgsmRunFilePath) {
 
 function cleanInput(line) {
     if (line) {
-        while (/\[\d+m/.test(line)) {
+        while (/\[\d+m/.test(line) || /\[K/.test(line)) {
             line = line.replace(/\[\d+m/, '').replace(/\[K/, '');
         }
         return line;
