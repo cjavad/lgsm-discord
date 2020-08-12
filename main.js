@@ -7,10 +7,16 @@ const config = require('./config');
 
 const commands = [
     {
+        command: 'help',
+        short: 'h',
+        notLgsm: true
+    },
+    {
         command: 'status',
         short: 's',
         notLgsm: true
     },
+    
     {
         command: 'auto-install',
         short: 'ai',
@@ -164,13 +170,24 @@ function lsgm(lgsmPath, lgsmCommand, callback) {
     });
 }
 
+function helpMessage() {
+    var helpMessage = `Usage: ${config.prefix}[server] [command]?\n**Valid Commands:**\n\`\`\``;
+    commands.forEach(cmd => {
+        helpMessage += `${cmd.short.length <= 1 ? pad('  ', cmd.short, false) : cmd.short} ${cmd.command} \n`;
+    });
+    helpMessage += "```"
+    return helpMessage;
+    
+}
+
 client.on('message', message => {
     // Validate & split discord message into command (name) and arguments
     var command = argParse(config.prefix, ' ')(message.content);
-    if (!command) return;
-    
+    if (command && ['h', 'help'].indexOf(command.command) > -1) {
+        // Always print usage even if help is not called.
+        return message.channel.send(helpMessage());
     // VERY BIG BRAIN MOVE.
-    if (config.servers.filter(x => x.name === command.command)) {
+    } else if (command && config.servers.filter(x => x.name === command.command)) {
         var server = config.servers.filter(x => x.name === command.command)[0];
         if (!server) return;
         if (!command.args.length) return;
@@ -226,14 +243,14 @@ client.on('message', message => {
                         text: 'lgsm-discord by apple#0018'
                     }
                 });
-                message.channel.send(embed);
+                return message.channel.send(embed);
             }).catch(error => {
                 if (error) {
                     // Server if offline
-                    message.channel.send("Failed to connect to " + server.pubIp);
+                    return message.channel.send("Failed to connect to " + server.pubIp);
                 }
-            })
-
+            });
+        
         } else {
             // LGSM COMMAND
             lsgm(server.path, commandObject.command, output => {
@@ -245,13 +262,6 @@ client.on('message', message => {
                 });
             });
         }
-    } else {
-        var helpMessage = `Usage: ${config.prefix}[server] [command]?\n**Valid Commands:**\n\`\`\``;
-        commands.forEach(cmd => {
-            helpMessage += `${cmd.short.length <= 1 ? pad('  ', cmd.short, false) : cmd.short} ${cmd.command} \n`;
-        });
-        helpMessage += "```"
-        message.channel.send(helpMessage);
     }
 });
 
