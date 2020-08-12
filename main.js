@@ -3,7 +3,9 @@ const Discord = require('discord.js');
 const gamedig = require('gamedig');
 const ip2loc = require("ip2location-nodejs");
 const nrc = require('node-run-cmd');
+const ipr = require('is-port-reachable');
 const config = require('./config');
+const { servers } = require('./config');
 
 const commands = [
     {
@@ -12,9 +14,13 @@ const commands = [
         notLgsm: true
     },
     {
-        command: 'status',
-        short: 's',
+        command: 'servers',
+        short: 'ls', // For List Servers,
         notLgsm: true
+    },
+    {
+        command: 'status',
+        short: 's'
     },
     
     {
@@ -143,6 +149,61 @@ function splitConnectionString (ipString) {
     }
 }
 
+function csgoDigDiscord(pubIp, message) {
+    gamedig.query({
+        type: 'csgo',
+        ...splitConnectionString(pubIp)
+    }).then(state => {
+        ip2loc.IP2Location_init('./data/IP-COUNTRY-SAMPLE.BIN');
+        var loc = 'US'; // ip2loc.IP2Location_get_country_short(state.connect);
+
+        var embed = new Discord.MessageEmbed({
+            title: state.name,
+            description: `Ping: ${state.ping || null}`,
+            fields: [
+                {
+                    name: 'Status',
+                    value: ':green_circle: Online',
+                    inline: true
+                },
+                {
+                    name: 'Address:Port',
+                    value: state.connect,
+                    inline: true
+                },
+                {
+                    name: 'Location',
+                    value: `:flag_${loc.toLowerCase()}: ${loc}`,
+                    inline: true
+                },
+                {
+                    name: 'Game',
+                    value: state.raw.game,
+                    inline: true
+                },
+                {
+                    name: 'Current Map',
+                    value: state.map,
+                    inline: true
+                }, {
+                    name: 'Players',
+                    value: `${state.players.length}/${state.maxplayers}`,
+                    inline: true
+                }
+            ],
+            footer: {
+                text: 'lgsm-discord by apple#0018'
+            }
+        });
+        return message.channel.send(embed);
+    }).catch(error => {
+        if (error) {
+            // Server if offline
+            return message.channel.send("Failed to connect to " + server.pubIp);
+        }
+    });
+}
+
 function extractUserFromPath(lgsmRunFilePath) {
     lgsmRunFilePath = lgsmRunFilePath.split('/').filter(elm => elm.length);
     return lgsmRunFilePath[1];
@@ -170,10 +231,19 @@ function lsgm(lgsmPath, lgsmCommand, callback) {
     });
 }
 
+function isReachable(publicIp) {
+    return ipr(publicIp.split(':').pop(), { host: publicIp.split(':').shift() });
+}
+
 function helpMessage() {
-    var helpMessage = `Usage: ${config.prefix}[server] [command]?\n**Valid Commands:**\n\`\`\``;
+    var helpMessage = `**Command usage ${config.prefix}[command]**\n`;
     commands.forEach(cmd => {
-        helpMessage += `${cmd.short.length <= 1 ? pad('  ', cmd.short, false) : cmd.short} ${cmd.command} \n`;
+        if (cmd.notLgsm) helpMessage += `\`${cmd.short.length <= 1 ? pad('  ', cmd.short, false) : cmd.short} ${cmd.command}\` \n`;
+    });
+
+    helpMessage += `\nLGSM Usage: ${config.prefix}[server] [command]?\n**Valid Commands:**\n\`\`\``;
+    commands.forEach(cmd => {
+        if (!cmd.notLgsm) helpMessage += `${cmd.short.length <= 1 ? pad('  ', cmd.short, false) : cmd.short} ${cmd.command} \n`;
     });
     helpMessage += "```"
     return helpMessage;
@@ -185,12 +255,20 @@ client.on('message', message => {
     if (!config.access.includes(message.author.id)) return;
     // Validate & split discord message into command (name) and arguments
     var command = argParse(config.prefix, ' ')(message.content);
-    if (command && ['h', 'help'].indexOf(command.command) > -1) {
+    if (!command) return;
+    if (['h', 'help'].indexOf(command.command) > -1) {
         // Always print usage even if help is not called.
         return message.channel.send(helpMessage());
-    
+    } else if (['ls', 'servers'].indexOf(command.command) > -1) {
+        servers.forEach(server => {
+            isReachable(server.pubIp)
+                .then(online => {
+                    var status = online ? '✔ Online' : '❌ Offline';
+                    message.channel.send(`**${server.name}** hosted at *${server.pubIp}*: ${status}`);
+                });
+        });
     // VERY BIG BRAIN MOVE.
-    } else if (command && config.servers.filter(x => x.name === command.command)) {
+    } else if (config.servers.filter(x => x.name === command.command)) {
         var server = config.servers.filter(x => x.name === command.command)[0];
         if (!server) return;
         if (!command.args.length) return;
@@ -199,61 +277,9 @@ client.on('message', message => {
         if (!commandObject.length) return;
         var commandObject = commandObject[0];
 
-        if (commandObject.notLgsm && commandObject.short === 's') {
+        if (commandObject.short === 's') {
             // Output server status by ip.
-            gamedig.query({
-                type: 'csgo',
-                ...splitConnectionString(server.pubIp)
-            }).then(state => {
-                ip2loc.IP2Location_init('./data/IP-COUNTRY-SAMPLE.BIN');
-                var loc = 'US'; // ip2loc.IP2Location_get_country_short(state.connect);
-
-                var embed = new Discord.MessageEmbed({
-                    title: state.name,
-                    description: `Ping: ${state.ping || null}`,
-                    fields: [
-                        {
-                            name: 'Status',
-                            value: ':green_circle: Online',
-                            inline: true
-                        },
-                        {
-                            name: 'Address:Port',
-                            value: state.connect,
-                            inline: true
-                        },
-                        {
-                            name: 'Location',
-                            value: `:flag_${loc.toLowerCase()}: ${loc}`,
-                            inline: true
-                        },
-                        {
-                            name: 'Game',
-                            value: state.raw.game,
-                            inline: true
-                        },
-                        {
-                            name: 'Current Map',
-                            value: state.map,
-                            inline: true
-                        }, {
-                            name: 'Players',
-                            value: `${state.players.length}/${state.maxplayers}`,
-                            inline: true
-                        }
-                    ],
-                    footer: {
-                        text: 'lgsm-discord by apple#0018'
-                    }
-                });
-                return message.channel.send(embed);
-            }).catch(error => {
-                if (error) {
-                    // Server if offline
-                    return message.channel.send("Failed to connect to " + server.pubIp);
-                }
-            });
-        
+            csgoDigDiscord(server.pubIp, message);
         } else {
             // LGSM COMMAND
             lsgm(server.path, commandObject.command, output => {

@@ -2,6 +2,7 @@ dependencies:
   discord.js: 12.2.0
   gamedig: 2.0.22
   ip2location-nodejs: 8.3.0
+  is-port-reachable: 3.0.0
   node-run-cmd: 1.0.1
 lockfileVersion: 5.1
 packages:
@@ -388,6 +389,12 @@ packages:
     dev: false
     resolution:
       integrity: sha512-ez97YBvX+G5Vqm2IN9X+1Pt1CakUR0LT2ynt6/BRRH8Tvtil/IaPXmibDRW9aj2qvT/rDrdyvbwq1OzRDSu5yg==
+  /is-port-reachable/3.0.0:
+    dev: false
+    engines:
+      node: '>=8'
+    resolution:
+      integrity: sha512-056IzLiWHdgVd6Eq1F9HtJl+cIkvi5X2MJ/A1fjQtByHkzQE1wGardnPhqrarOGDF88BOW+297X7PDvZ2vcyVg==
   /isarray/0.0.1:
     dev: false
     resolution:
@@ -669,4 +676,5 @@ specifiers:
   discord.js: ^12.2.0
   gamedig: ^2.0.20
   ip2location-nodejs: ^8.3.0
+  is-port-reachable: ^3.0.0
   node-run-cmd: ^1.0.1
