@@ -150,7 +150,7 @@ function extractUserFromPath(lgsmRunFilePath) {
 
 function cleanInput(line) {
     if (line) {
-        while (/\[\d+m/.test(line)) {
+        while (/\[\d+m/.test(line) || /\[K/.test(line)) {
             line = line.replace(/\[\d+m/, '').replace(/\[K/, '');
         }
         return line;
@@ -181,11 +181,14 @@ function helpMessage() {
 }
 
 client.on('message', message => {
+    // Check permissions
+    if (!config.access.includes(message.author.id)) return;
     // Validate & split discord message into command (name) and arguments
     var command = argParse(config.prefix, ' ')(message.content);
     if (command && ['h', 'help'].indexOf(command.command) > -1) {
         // Always print usage even if help is not called.
         return message.channel.send(helpMessage());
+    
     // VERY BIG BRAIN MOVE.
     } else if (command && config.servers.filter(x => x.name === command.command)) {
         var server = config.servers.filter(x => x.name === command.command)[0];
