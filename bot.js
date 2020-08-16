@@ -92,32 +92,42 @@ function handleCommand(command, server, message) {
 // Listen for commands
 client.on('message', message => {
     // Check permissions
-    if (!config.discord.access.includes(message.author.id)) return;
-    // Parse (or try to at least) the incomming message.
-    const args = argParse(message.content);
-    // Check if the command is valid
-    if (!args) return;
-    
-    let command, server;
+    for (let i = 0; i < config.discord.access.length; i++) {
+        const id = config.discord.access[i];
+        
+        if (message.author.id === id || message.member.roles.cache.some(role => role.id === id)) {
+            // Parse (or try to at least) the incomming message.
+            const args = argParse(message.content);
+            // Check if the command is valid
+            if (!args) return;
+            
+            let command, server;
 
-    // Browse arguments for command name and server name
-    args.forEach(arg => {
-        if (Object.keys(servers).includes(arg) && typeof servers[arg] === 'object') {
-            server = servers[arg]
-            servers['host'] && !server['host'] ? server['host'] = servers['host'] : '';
-            servers['user'] && !server['user'] ? server['user'] = servers['user'] : '';
-        } else if (commands.find(command => command.command === arg || command.alias.includes(arg))) {
-            command = commands.find(command => command.command === arg || command.alias.includes(arg));
+            // Browse arguments for command name and server name
+            args.forEach(arg => {
+                if (Object.keys(servers).includes(arg) && typeof servers[arg] === 'object') {
+                    server = servers[arg]
+                    servers['host'] && !server['host'] ? server['host'] = servers['host'] : '';
+                    servers['user'] && !server['user'] ? server['user'] = servers['user'] : '';
+                } else if (commands.find(command => command.command === arg || command.alias.includes(arg))) {
+                    command = commands.find(command => command.command === arg || command.alias.includes(arg));
+                }
+            });
+
+            // Pass variables to handler if command is present
+            if (command) {
+                return handleCommand(command, server, message);
+            } else {
+                // Invalid command send help message
+                message.channel.send(helpMessage(config.discord.prefix, commands));
+            }
+            break;
         }
-    });
-
-    // Pass variables to handler if command is present
-    if (command) {
-        return handleCommand(command, server, message);
-    } else {
-        // Invalid command send help message
-        message.channel.send(helpMessage(config.discord.prefix, commands));
     }
+});
+
+client.on('ready', () => {
+    console.log('lgsm-discord: connected');
 });
 
 client.login(config.discord.token);
