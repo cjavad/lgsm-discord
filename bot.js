@@ -95,7 +95,7 @@ client.on('message', message => {
     for (let i = 0; i < config.discord.access.length; i++) {
         const id = config.discord.access[i];
         
-        if (message.author.id === id || message.member.roles.cache.some(role => role.id === id)) {
+        if (message.author.id === id || (message.member && message.member.roles.cache.some(role => role.id === id))) {
             // Parse (or try to at least) the incomming message.
             const args = argParse(message.content);
             // Check if the command is valid
