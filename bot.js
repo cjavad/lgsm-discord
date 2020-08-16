@@ -67,6 +67,11 @@ function handleCommand(command, server, message) {
     } else {
         let startMessage;
 
+        if (!server) {
+            message.channel.send('No server specified');
+            return;
+        }
+
         if (command.message) {
             message.channel.send(command.message).then(s => {
                 startMessage = s;
