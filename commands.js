@@ -114,7 +114,6 @@ module.exports = [
         command: 'validate',
         alias: [
             'v'
-        ],
-        
+        ]
     }
 ];
