@@ -25,8 +25,7 @@ module.exports = [
         command: 'auto-install',
         alias: [
             'ai'
-        ],
-        
+        ]
     },
     {
         command: 'start',
@@ -41,7 +40,6 @@ module.exports = [
         alias: [
             'sp'
         ],
-        
         output: false,
         message: 'stopping server'
     },
@@ -50,7 +48,6 @@ module.exports = [
         alias: [
             'r'
         ],
-        
         output: false,
         message: 'restarting server'
     },
@@ -58,57 +55,50 @@ module.exports = [
         command: 'details',
         alias: [
             'dt'
-        ],
-        
+        ]
     },
     {
         command: 'post-details',
         alias: [
             'pd'
-        ],
+        ]
         
     },
     {
         command: 'backup',
         alias: [
             'b'
-        ],
-        
+        ]
     },
     {
         command: 'update-lgsm',
         alias: [
             'ul'
-        ],
-        
+        ]
     },
     {
         command: 'monitor',
         alias: [
             'm'
-        ],
-        
+        ]
     },
     {
         command: 'test-alert',
         alias: [
             'ta'
-        ],
-        
+        ]
     },
     {
         command: 'update',
         alias: [
             'u'
-        ],
-        
+        ]
     },
     {
         command: 'force-update',
         alias: [
             'fu'
-        ],
-        
+        ]
     },
     {
         command: 'validate',
