@@ -6,15 +6,34 @@ const client = new Discord.Client();
 const config = ini.parse(fs.readFileSync('config.ini', 'utf-8'));
 const servers = ini.parse(fs.readFileSync('servers.ini', 'utf-8'));
 const commands = require('./commands');
+const gameservers = [];
+
+// Convert servers config into an array of individual servers
+
+for (const server in servers) {
+    for (const gameserver in servers[server]) {
+        if (typeof servers[server][gameserver] === 'object') {
+            gameservers.push({
+                name: gameserver,
+                sName: server,
+                type: servers[server].type,
+                user: servers[server][gameserver].user || servers[server].user,
+                host: servers[server][gameserver].host || servers[server].host,
+                port: servers[server][gameserver].port,
+                path: servers[server][gameserver].path,
+                key: servers[server].type === 'external' ? servers[server].key : undefined,
+                sPort: servers[server].type === 'external' ? servers[server].sPort : undefined
+            });
+        }
+    }
+}
 
 const argParse = require('./lib/argParse')(config.discord.prefix, ' ');
 const gamedig = require('./lib/gamedig');
 const helpMessage = require('./lib/helpMessage');
 const isReachable = require('./lib/isReachable');
+const lgsmIO = require('./lib/lgsmIO');
 const runner = require('./lib/runner');
-const { run } = require('node-run-cmd');
-const { start } = require('repl');
-
 
 /**
  * Handle incomming discord commands
@@ -31,10 +50,15 @@ const { start } = require('repl');
  * 
  * @typedef Server
  * @type {object}
+ * @property {string} name - Unique server name
+ * @property {string} sName - Machine name
+ * @property {string} type - external or local
  * @property {string} user - Lgsm user
  * @property {string} host 
  * @property {number} port
  * @property {string} path - Lgsm executable full path
+ * @property {string} key - Key for lgsmIO server
+ * @property {number} sPort Port for lgsmIO server
  * 
  * @param {Server} server
  * @param {Discord.Message} message
@@ -42,14 +66,11 @@ const { start } = require('repl');
 function handleCommand(command, server, message) {
     if (command.notLgsm) {
         if (command.command === 'servers') {
-            for (const server in servers) {
-                if (!['user', 'host'].includes(server) && typeof servers[server] === 'object') {
-                    servers['host'] && !servers[server].host ? servers[server].host = servers['host'] : '';
-                    isReachable(servers[server].host, servers[server].port).then(online => {
-                        var status = online ? '✔ Online' : '❌ Offline';
-                        message.channel.send(`**${server}** hosted at **${servers[server].host}:${servers[server].port}**: ${status}`);
-                    });
-                }
+            for (const server of gameservers) {
+                isReachable(server.host, server.port).then(online => {
+                    var status = online ? '✔ Online' : '❌ Offline';
+                    message.channel.send(`**${server.name}** hosted at **${server.host}:${server.port}**: ${status}`);
+                });
             }
         } else if (command.command === 'status') {
             if (!server) return;
@@ -75,11 +96,10 @@ function handleCommand(command, server, message) {
         if (command.message) {
             message.channel.send(command.message).then(s => {
                 startMessage = s;
-                startMessage.delete();
             });
         }
 
-        runner(server.user, server.path, command.command, output => {
+        function callback(output) {
             if (command.output === undefined && command.output !== false) {
                 message.channel.send(`Finished running \`${server.path} ${command.command}\` on **${server.name}**\n`, {
                     files: [{
@@ -89,8 +109,17 @@ function handleCommand(command, server, message) {
                 });
             }
 
-            message.channel.send('Completed ' + command.message);
-        });
+            if (command.message) {
+                startMessage ? startMessage.delete() : '';
+                message.channel.send('Completed ' + command.message);
+            }
+        }
+
+        if (server.type === 'external') {
+            lgsmIO(server, command, callback);
+        } else {
+            runner(server.user, server.path, command.command, callback);
+        }
     }
 }
 
@@ -110,11 +139,9 @@ client.on('message', message => {
 
             // Browse arguments for command name and server name
             args.forEach(arg => {
-                if (Object.keys(servers).includes(arg) && typeof servers[arg] === 'object') {
-                    server = servers[arg]
-                    servers['host'] && !server['host'] ? server['host'] = servers['host'] : '';
-                    servers['user'] && !server['user'] ? server['user'] = servers['user'] : '';
-                } else if (commands.find(command => command.command === arg || command.alias.includes(arg))) {
+                if (gameservers.some(server => server.name === arg)) {
+                    server = gameservers.find(server => server.name === arg)
+                } else if (commands.some(command => command.command === arg || command.alias.includes(arg))) {
                     command = commands.find(command => command.command === arg || command.alias.includes(arg));
                 }
             });

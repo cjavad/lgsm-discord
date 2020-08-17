@@ -1,10 +1,11 @@
 {
   "name": "lgsm-discord",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Discord bot to deploy on linux gsm csgo servers for remote management. https://linuxgsm.com/",
   "main": "bot.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "bot": "node bot.js",
+    "server": "node server.js"
   },
   "repository": {
     "type": "git",
@@ -23,6 +24,9 @@
     "ini": "^1.3.5",
     "ip2location-nodejs": "^8.3.0",
     "is-port-reachable": "^3.0.0",
-    "node-run-cmd": "^1.0.1"
+    "node-run-cmd": "^1.0.1",
+    "notp": "^2.0.3",
+    "socket.io": "^2.3.0",
+    "socket.io-client": "^2.3.0"
   }
 }
