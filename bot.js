@@ -84,6 +84,10 @@ function handleCommand(command, server, message) {
 
         } else if (command.command === 'help') {
             message.channel.send(helpMessage(config.discord.prefix, commands));
+        } else {
+            if (command.message) {
+                message.channel.send(command.message);
+            }
         }
     } else {
         let startMessage;
