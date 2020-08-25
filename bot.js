@@ -1,7 +1,7 @@
 const fs = require('fs');
 const ini = require('ini');
 const Discord = require('discord.js');
-const Rcon = require('rcon-srcds');
+const Rcon = require('mbr-rcon');
 
 const client = new Discord.Client();
 const config = ini.parse(fs.readFileSync('config.ini', 'utf-8'));
@@ -90,27 +90,39 @@ function handleCommand(message, command, server, ...args) {
         } else if (command.command === 'help') {
             message.channel.send(helpMessage(config.discord.prefix, commands));
         } else if (command.command === 'rcon') {
-            if (!server) return
-            const rcon = new Rcon({
-                host: server.host,
-                port: server.rconPort
-            });
-
+            if (!server) return;
             if (!args.length) return;
 
-            rcon.authenticate(server.rconPassword).then(() => {
-                rcon.execute(args.join(' ')).then(answer => {
-                    if (answer.length < 2000) {
-                        message.channel.send(answer.toString());
-                    } else {
-                        message.channel.send(`RCON response on **${server.name}**\n`, {
-                            files: [{
-                                attachment: Buffer.from(answer),
-                                name: `rcon-${args.join(' ')}-${new Date().toISOString().slice(0, 10)}.txt`
-                            }]
-                        });
-                    }
-                });
+            const rcon = new Rcon({
+                host: server.host,
+                port: server.rconPort,
+                pass: server.rconPassword
+            });
+
+            const connection = rcon.connect();
+            connection.auth({
+                onSuccess: () => {
+                    connection.send(args.join(' '), {
+                        onSuccess: response => {
+                            if (response.length < 2000) {
+                                message.channel.send(response.toString());
+                            } else {
+                                message.channel.send(`RCON response on **${server.name}**\n`, {
+                                    files: [{
+                                        attachment: Buffer.from(response),
+                                        name: `rcon-${args.join(' ')}-${new Date().toISOString().slice(0, 10)}.txt`
+                                    }]
+                                });
+                            }
+                        },
+                        onError: error => {
+                            message.channel.send('Something went wrong while trying to login with RCON');
+                        }
+                    });
+                },
+                onError: error => {
+                    message.channel.send('Something went wrong while trying to connect to RCON');
+                }
             });
         } else {
             if (command.message) {
