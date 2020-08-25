@@ -104,6 +104,11 @@ function handleCommand(message, command, server, ...args) {
                 onSuccess: () => {
                     connection.send(args.join(' '), {
                         onSuccess: response => {
+                            // Remove trailing line
+                            response = response.split('\n');
+                            response.splice(response.length - 2, 1);
+                            response = response.join('\n');
+
                             if (response.length < 2000) {
                                 message.channel.send(response.toString());
                             } else {
