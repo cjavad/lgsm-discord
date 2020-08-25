@@ -1,6 +1,7 @@
 const fs = require('fs');
 const ini = require('ini');
 const Discord = require('discord.js');
+const Rcon = require('rcon-srcds');
 
 const client = new Discord.Client();
 const config = ini.parse(fs.readFileSync('config.ini', 'utf-8'));
@@ -20,6 +21,8 @@ for (const server in servers) {
                 user: servers[server][gameserver].user || servers[server].user,
                 host: servers[server][gameserver].host || servers[server].host,
                 port: servers[server][gameserver].port,
+                rconPort: servers[server][gameserver].rconPort,
+                rconPassword: servers[server][gameserver].rconPassword,
                 path: servers[server][gameserver].path,
                 key: servers[server].type === 'external' ? servers[server].key : undefined,
                 sPort: servers[server].type === 'external' ? servers[server].sPort : undefined
@@ -57,13 +60,15 @@ const runner = require('./lib/runner');
  * @property {string} host 
  * @property {number} port
  * @property {string} path - Lgsm executable full path
+ * @property {number} rconPort - rcon port for server
+ * @property {string} rconPassword - rcon password for server
  * @property {string} key - Key for lgsmIO server
  * @property {number} sPort Port for lgsmIO server
  * 
  * @param {Server} server
  * @param {Discord.Message} message
  */
-function handleCommand(command, server, message) {
+function handleCommand(message, command, server, ...args) {
     if (command.notLgsm) {
         if (command.command === 'servers') {
             for (const server of gameservers) {
@@ -84,6 +89,29 @@ function handleCommand(command, server, message) {
 
         } else if (command.command === 'help') {
             message.channel.send(helpMessage(config.discord.prefix, commands));
+        } else if (command.command === 'rcon') {
+            if (!server) return
+            const rcon = new Rcon({
+                host: server.host,
+                port: server.rconPort
+            });
+
+            if (!args.length) return;
+
+            rcon.authenticate(server.rconPassword).then(() => {
+                rcon.execute(args.join(' ')).then(answer => {
+                    if (answer.length < 2000) {
+                        message.channel.send(answer.toString());
+                    } else {
+                        message.channel.send(`RCON response on **${server.name}**\n`, {
+                            files: [{
+                                attachment: Buffer.from(answer),
+                                name: `rcon-${args.join(' ')}-${new Date().toISOString().slice(0, 10)}.txt`
+                            }]
+                        });
+                    }
+                });
+            });
         } else {
             if (command.message) {
                 message.channel.send(command.message);
@@ -135,24 +163,27 @@ client.on('message', message => {
         
         if (message.author.id === id || (message.member && message.member.roles.cache.some(role => role.id === id))) {
             // Parse (or try to at least) the incomming message.
-            const args = argParse(message.content);
+            let args = argParse(message.content);
             // Check if the command is valid
             if (!args) return;
             
             let command, server;
 
             // Browse arguments for command name and server name
-            args.forEach(arg => {
+            args.forEach((arg, index) => {
+                if (index > 1) return;
                 if (gameservers.some(server => server.name === arg)) {
-                    server = gameservers.find(server => server.name === arg)
+                    server = gameservers.find(server => server.name === arg);
+                    args = args.filter(argo => argo !== arg);
                 } else if (commands.some(command => command.command === arg || command.alias.includes(arg))) {
                     command = commands.find(command => command.command === arg || command.alias.includes(arg));
+                    args = args.filter(argo => argo !== arg);
                 }
             });
 
             // Pass variables to handler if command is present
             if (command) {
-                return handleCommand(command, server, message);
+                return handleCommand(message, command, server, ...args);
             } else {
                 // Invalid command send help message
                 message.channel.send(helpMessage(config.discord.prefix, commands));

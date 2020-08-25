@@ -20,7 +20,13 @@ module.exports = [
         ],
         notLgsm: true
     },
-    
+    {
+        command: 'rcon',
+        alias: [
+            'rc'
+        ],
+        notLgsm: true
+    },
     {
         command: 'auto-install',
         alias: [

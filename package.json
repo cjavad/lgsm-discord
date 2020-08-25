@@ -25,6 +25,7 @@
     "is-port-reachable": "^3.0.0",
     "node-run-cmd": "^1.0.1",
     "notp": "^2.0.3",
+    "rcon-srcds": "^1.2.1",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0"
   }
