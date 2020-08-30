@@ -14,6 +14,11 @@ const gameservers = [];
 for (const server in servers) {
     for (const gameserver in servers[server]) {
         if (typeof servers[server][gameserver] === 'object') {
+            var access = [];
+            config.discord.access ? access.push(...config.discord.access) : '';
+            servers[server].access ? access.push(...servers[server].access) : '';
+            servers[server][gameserver].access ? access.push(...servers[server][gameserver].access) : '';
+
             gameservers.push({
                 name: gameserver,
                 sName: server,
@@ -25,7 +30,8 @@ for (const server in servers) {
                 rconPassword: servers[server][gameserver].rconPassword,
                 path: servers[server][gameserver].path,
                 key: servers[server].type === 'external' ? servers[server].key : undefined,
-                sPort: servers[server].type === 'external' ? servers[server].sPort : undefined
+                sPort: servers[server].type === 'external' ? servers[server].sPort : undefined,
+                access: access
             });
         }
     }
@@ -64,6 +70,7 @@ const runner = require('./lib/runner');
  * @property {string} rconPassword - rcon password for server
  * @property {string} key - Key for lgsmIO server
  * @property {number} sPort Port for lgsmIO server
+ * @property {Array<string>} access Array of discord ids with permission to access the server
  * 
  * @param {Server} server
  * @param {Discord.Message} message
@@ -174,39 +181,58 @@ function handleCommand(message, command, server, ...args) {
 
 // Listen for commands
 client.on('message', message => {
+    const availableIds = [];
+    availableIds.push(message.member.user.id);
+    availableIds.push(message.channel.id);
+    message.member.roles.cache.array().forEach(role => {
+        availableIds.push(role.id);
+    });
+
+    const allowedIds = [...config.discord.access];
+
+    if (!allowedIds.some(ids => availableIds.indexOf(ids) > -1)) return;
+
+    // Parse (or try to at least) the incomming message.
+    let args = argParse(message.content);
+    // Check if the command is valid
+    if (!args) return;
+    
+    let command, server;
+
+    // Browse arguments for command name and server name
+    args.forEach((arg, index) => {
+        if (index > 1) return;
+        if (gameservers.some(server => server.name === arg)) {
+           server = gameservers.find(server => server.name === arg);
+           args = args.filter(argo => argo !== arg);
+        } else if (commands.some(command => command.command === arg || command.alias.includes(arg))) {
+           command = commands.find(command => command.command === arg || command.alias.includes(arg));
+           args = args.filter(argo => argo !== arg);
+        }
+    });
+
+    // Check if user/channel has access to the server
+    if (server) {
+        allowedIds.push(...server.access);
+        if (!allowedIds.some(ids => availableIds.indexOf(ids) > -1)) return;
+    }
+
+    // Pass variables to handler if command is present
+    if (command) {
+        return handleCommand(message, command, server, ...args);
+    } else {
+        // Invalid command send help message
+        message.channel.send(helpMessage(config.discord.prefix, commands));
+    }
+
     // Check permissions
     for (let i = 0; i < config.discord.access.length; i++) {
-        const id = config.discord.access[i];
-        
-        if (message.author.id === id || (message.member && message.member.roles.cache.some(role => role.id === id))) {
-            // Parse (or try to at least) the incomming message.
-            let args = argParse(message.content);
-            // Check if the command is valid
-            if (!args) return;
-            
-            let command, server;
-
-            // Browse arguments for command name and server name
-            args.forEach((arg, index) => {
-                if (index > 1) return;
-                if (gameservers.some(server => server.name === arg)) {
-                    server = gameservers.find(server => server.name === arg);
-                    args = args.filter(argo => argo !== arg);
-                } else if (commands.some(command => command.command === arg || command.alias.includes(arg))) {
-                    command = commands.find(command => command.command === arg || command.alias.includes(arg));
-                    args = args.filter(argo => argo !== arg);
-                }
-            });
-
-            // Pass variables to handler if command is present
-            if (command) {
-                return handleCommand(message, command, server, ...args);
-            } else {
-                // Invalid command send help message
-                message.channel.send(helpMessage(config.discord.prefix, commands));
-            }
-            break;
-        }
+       const id = config.discord.access[i];
+       
+       if (message.author.id === id || (message.member && message.member.roles.cache.some(role => role.id === id))) {
+         
+          break;
+       }
     }
 });
 
