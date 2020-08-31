@@ -79,13 +79,14 @@ function handleCommand(message, command, server, ...args) {
     if (command.notLgsm) {
         if (command.command === 'servers') {
             for (const server of gameservers) {
-                isReachable(server.host, server.port).then(online => {
-                    var status = online ? '✔ Online' : '❌ Offline';
-                    message.channel.send(`**${server.name}** hosted at **${server.host}:${server.port}**: ${status}`);
-                });
+                if (server.access.some(ids => message.availableIds.indexOf(ids) > -1)) {
+                    isReachable(server.host, server.port).then(online => {
+                        var status = online ? '✔ Online' : '❌ Offline';
+                        message.channel.send(`**${server.name}** hosted at **${server.host}:${server.port}**: ${status}`);
+                    });
+                }
             }
-        } else if (command.command === 'status') {
-            if (!server) return;
+        } else if (command.command === 'status' && server) {
             gamedig(server.host, server.port, embed => {
                 if (embed) {
                     message.channel.send(embed);
@@ -94,7 +95,7 @@ function handleCommand(message, command, server, ...args) {
                 }
             });
 
-        } else if (command.command === 'help') {
+        } else if (command.command === 'help' && server) {
             message.channel.send(helpMessage(config.discord.prefix, commands));
         } else if (command.command === 'rcon') {
             if (!server) return;
@@ -181,16 +182,14 @@ function handleCommand(message, command, server, ...args) {
 
 // Listen for commands
 client.on('message', message => {
-    const availableIds = [];
-    availableIds.push(message.member.user.id);
-    availableIds.push(message.channel.id);
+    message.availableIds = [];
+    message.availableIds.push(message.member.user.id);
+    message.availableIds.push(message.channel.id);
     message.member.roles.cache.array().forEach(role => {
-        availableIds.push(role.id);
+        message.availableIds.push(role.id);
     });
 
-    const allowedIds = [...config.discord.access];
-
-    if (!allowedIds.some(ids => availableIds.indexOf(ids) > -1)) return;
+    const allowedIds = [];
 
     // Parse (or try to at least) the incomming message.
     let args = argParse(message.content);
@@ -212,9 +211,10 @@ client.on('message', message => {
     });
 
     // Check if user/channel has access to the server
+    config.discord.access ? allowedIds.push(...config.discord.access) : '';
     if (server) {
         allowedIds.push(...server.access);
-        if (!allowedIds.some(ids => availableIds.indexOf(ids) > -1)) return;
+        if (!allowedIds.some(ids => message.availableIds.indexOf(ids) > -1)) return;
     }
 
     // Pass variables to handler if command is present

@@ -77,6 +77,9 @@ rconPassword = rconpwd ; Password for source rcon
 port = 27015 ; Game server port
 user = csgoserver ; User with access to the LGSM executable
 path = /home/csgoserver/csgoserver ; LGSM executable path
+; Array of discord users and roles allowed to use ALL commands on THIS gameserver
+access[] = 000000000000000000
+access[] = 000000000000000000
 
 [host1.gameserver2] ; gameserver2 becomes the UNIQUE name of the server
 port = 27025 ; Game server port
