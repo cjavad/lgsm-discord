@@ -7,6 +7,13 @@ module.exports = [
         notLgsm: true
     },
     {
+        command: 'reload',
+        alias: [
+            'rel'
+        ],
+        notLgsm: true
+    },
+    {
         command: 'servers',
         alias: [
             'ls'

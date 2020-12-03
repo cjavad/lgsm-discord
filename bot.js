@@ -4,38 +4,50 @@ const Discord = require('discord.js');
 const Rcon = require('mbr-rcon');
 
 const client = new Discord.Client();
-const config = ini.parse(fs.readFileSync('config.ini', 'utf-8'));
-const servers = ini.parse(fs.readFileSync('servers.ini', 'utf-8'));
-const commands = require('./commands');
-const gameservers = [];
+let commands = require('./commands');
+
+let config;
+let servers;
+let gameservers;
 
 // Convert servers config into an array of individual servers
 
-for (const server in servers) {
-    for (const gameserver in servers[server]) {
-        if (typeof servers[server][gameserver] === 'object') {
-            var access = [];
-            config.discord.access ? access.push(...config.discord.access) : '';
-            servers[server].access ? access.push(...servers[server].access) : '';
-            servers[server][gameserver].access ? access.push(...servers[server][gameserver].access) : '';
+function loadConfig() {
+    config = ini.parse(fs.readFileSync('config.ini', 'utf-8'));
+    servers = ini.parse(fs.readFileSync('servers.ini', 'utf-8'));
+    commands = require('./commands');
+    gameservers = [];
 
-            gameservers.push({
-                name: gameserver,
-                sName: server,
-                type: servers[server].type,
-                user: servers[server][gameserver].user || servers[server].user,
-                host: servers[server][gameserver].host || servers[server].host,
-                port: servers[server][gameserver].port,
-                rconPort: servers[server][gameserver].rconPort,
-                rconPassword: servers[server][gameserver].rconPassword,
-                path: servers[server][gameserver].path,
-                key: servers[server].type === 'external' ? servers[server].key : undefined,
-                sPort: servers[server].type === 'external' ? servers[server].sPort : undefined,
-                access: access
-            });
+    for (const server in servers) {
+        for (const gameserver in servers[server]) {
+            if (typeof servers[server][gameserver] === 'object') {
+                var access = [];
+                config.discord.access ? access.push(...config.discord.access) : '';
+                servers[server].access ? access.push(...servers[server].access) : '';
+                servers[server][gameserver].access ? access.push(...servers[server][gameserver].access) : '';
+    
+                gameservers.push({
+                    name: gameserver,
+                    sName: server,
+                    type: servers[server].type,
+                    user: servers[server][gameserver].user || servers[server].user,
+                    host: servers[server][gameserver].host || servers[server].host,
+                    port: servers[server][gameserver].port,
+                    rconPort: servers[server][gameserver].rconPort,
+                    rconPassword: servers[server][gameserver].rconPassword,
+                    path: servers[server][gameserver].path,
+                    key: servers[server].type === 'external' ? servers[server].key : undefined,
+                    sPort: servers[server].type === 'external' ? servers[server].sPort : undefined,
+                    access: access
+                });
+            }
         }
     }
 }
+
+// Load config on startup
+loadConfig();
+
 
 const argParse = require('./lib/argParse')(config.discord.prefix, ' ');
 const gamedig = require('./lib/gamedig');
@@ -86,6 +98,9 @@ function handleCommand(message, command, server, ...args) {
                     });
                 }
             }
+        } else if (command.command === 'reload') {
+             loadConfig();
+             message.channel.send('Reloaded configuration succesfully');
         } else if (command.command === 'status' && server) {
             gamedig(server.host, server.port, embed => {
                 if (embed) {
@@ -226,6 +241,7 @@ client.on('message', message => {
     }
 
     // Check permissions
+    if (!config.discord.access) return console.error("No discord access config provided");
     for (let i = 0; i < config.discord.access.length; i++) {
        const id = config.discord.access[i];
        
