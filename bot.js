@@ -110,7 +110,7 @@ function handleCommand(message, command, server, ...args) {
                 }
             });
 
-        } else if (command.command === 'help' && server) {
+        } else if (command.command === 'help') {
             message.channel.send(helpMessage(config.discord.prefix, commands));
         } else if (command.command === 'rcon') {
             if (!server) return;
